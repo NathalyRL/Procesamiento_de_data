@@ -3,69 +3,70 @@ import numpy as np
 from pydub import AudioSegment
 import os
 
-def extract_segments(input_file, output_folder, beep_freq=1000, threshold=0.3):
-    """
-    Analiza un archivo .wav y lo corta basándose en la frecuencia del pitido.
-    """
-    print(f"--- Iniciando análisis de: {input_file} ---")
+# --- CONFIGURACIÓN DEL ARCHIVO ÚNICO ---
+archivo_entrada = "02_00_05.wav"  # Pon aquí el nombre de tu archivo
+carpeta_salida = r"D:\Documentos\Ayudante de Investigacion\Codigos\test_cortes"
+frecuencia_pitido = 1200  # Basado en el pico que vimos en Audacity
+umbral_sensibilidad = 0.7 
+
+def procesar_archivo_unico(ruta_wav, salida, beep_freq, threshold):
+    # 1. Extraer nombre base para el formato: Nombre_001.wav
+    nombre_base = os.path.splitext(os.path.basename(ruta_wav))[0]
     
-    # 1. Cargar el audio para análisis (librosa es mejor para detectar frecuencias)
-    y, sr = librosa.load(input_file)
+    print(f"Analizando: {nombre_base}...")
     
-    # Transformada de Fourier para ver frecuencias
+    # 2. Detección de pitidos con Librosa
+    y, sr = librosa.load(ruta_wav)
     S = np.abs(librosa.stft(y))
     freqs = librosa.fft_frequencies(sr=sr)
+    idx = (np.abs(freqs - beep_freq)).argmin()
     
-    # Encontrar el índice de la frecuencia del pitido
-    target_idx = (np.abs(freqs - beep_freq)).argmin()
-    beep_energy = S[target_idx]
+    # Normalizamos la energía del pitido
+    energia = S[idx]
+    energia = energia / (np.max(energia) + 1e-9)
     
-    # Normalizar energía entre 0 y 1
-    beep_energy = beep_energy / (np.max(beep_energy) + 1e-9)
+    # Buscamos los tiempos donde suena el pitido
+    frames = np.where(energia > threshold)[0]
+    tiempos = librosa.frames_to_time(frames, sr=sr)
     
-    # Encontrar frames donde la energía supera el umbral
-    frames = np.where(beep_energy > threshold)[0]
-    times = librosa.frames_to_time(frames, sr=sr)
+    pitidos_finales = []
+    if len(tiempos) > 0:
+        pitidos_finales.append(tiempos[0])
+        for t in tiempos:
+            if t - pitidos_finales[-1] > 2.0: # Evita detectar el mismo pitido
+                pitidos_finales.append(t)
     
-    # Agrupar detecciones para no detectar el mismo pitido muchas veces
-    # Como tus frases duran ~5s, un margen de 2s es seguro.
-    final_beeps = []
-    if len(times) > 0:
-        final_beeps.append(times[0])
-        for t in times:
-            if t - final_beeps[-1] > 2.0: # Salto de 2 segundos mínimo entre pitidos
-                final_beeps.append(t)
+    print(f"Se encontraron {len(pitidos_finales)} pitidos.")
 
-    print(f"Se detectaron {len(final_beeps)} pitidos.")
+    # 3. Recorte con Pydub
+    audio = AudioSegment.from_wav(ruta_wav)
+    if not os.path.exists(salida):
+        os.makedirs(salida)
 
-    # 2. Cargar con pydub para el corte de alta precisión
-    audio = AudioSegment.from_wav(input_file)
-    
-    # Creamos la lista de cortes (incluyendo el final del audio)
-    # Si la frase empieza DESPUÉS del primer pitido, ignoramos el fragmento 0 antes del primer pitido
-    timestamps_ms = [t * 1000 for t in final_beeps]
-    timestamps_ms.append(len(audio)) 
-    
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
-    # 3. Guardar fragmentos
-    for i in range(len(timestamps_ms) - 1):
-        start = timestamps_ms[i]
-        end = timestamps_ms[i+1]
+    for i, tiempo_pitido in enumerate(pitidos_finales):
+        # El clip empieza 300ms después del inicio del pitido (para que no se oiga)
+        inicio_ms = int(tiempo_pitido * 1000) + 300
         
-        # AJUSTE FINO (Padding):
-        # Le sumamos 300ms al inicio para saltarnos el sonido del propio pitido
-        # Le restamos 100ms al final para no pillar el inicio del siguiente pitido
-        clip = audio[start + 300 : end - 100]
+        # Lógica de fin de clip
+        if i < len(pitidos_finales) - 1:
+            # Si hay otro pitido después, cortamos justo antes del siguiente pitido
+            fin_ms = int(pitidos_finales[i+1] * 1000) - 50 
+        else:
+            # Si es el ÚLTIMO, forzamos duración de 4.59 segundos (4590 ms)
+            fin_ms = inicio_ms + 4590
+            
+        # Realizar el corte
+        segmento = audio[inicio_ms:fin_ms]
         
-        if len(clip) > 1000: # Solo guardar si dura más de 1 segundo
-            nombre_archivo = f"clip_{i+1:03d}.wav" # clip_001.wav, clip_002.wav...
-            clip.export(os.path.join(output_folder, nombre_archivo), format="wav")
-            print(f"Exportado: {nombre_archivo} | Duración: {len(clip)/1000:.2f}s")
+        # Nombre de archivo solicitado: NombreOriginal_Numero.wav
+        nombre_clip = f"{nombre_base}_{i+1:02d}.wav"
+        ruta_final = os.path.join(salida, nombre_clip)
+        
+        segmento.export(ruta_final, format="wav")
+        print(f" -> Exportado: {nombre_clip} (Duración: {len(segmento)/1000:.2f}s)")
 
-# --- CONFIGURACIÓN DEL TEST ---
-archivo_test = "02_00_05.wav" # <-- CAMBIA ESTO
-carpeta_destino = r"D:\Documentos\Ayudante de Investigacion\Codigos\test_cortes" # <-- CAMBIA ESTO
-
-extract_segments(archivo_test, carpeta_destino, beep_freq=1200, threshold=0.4)
+if __name__ == "__main__":
+    if os.path.exists(archivo_entrada):
+        procesar_archivo_unico(archivo_entrada, carpeta_salida, frecuencia_pitido, umbral_sensibilidad)
+    else:
+        print(f"Error: No se encuentra el archivo '{archivo_entrada}'")
