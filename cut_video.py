@@ -3,29 +3,29 @@ import numpy as np
 from pydub import AudioSegment
 import os
 
-# --- CONFIGURACIÓN DEL ARCHIVO ÚNICO ---
-archivo_entrada = "02_00_05.wav"  # Pon aquí el nombre de tu archivo
-carpeta_salida = r"D:\Documentos\Ayudante de Investigacion\Codigos\test_cortes"
-frecuencia_pitido = 1200  # Basado en el pico que vimos en Audacity
+# --- CONFIGURACIÓN MASIVA ---
+# Carpeta donde están tus 50 archivos .wav originales
+carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\Codigos\Archivo_wav_convertidos"
+# Carpeta donde se guardarán todos los recortes
+carpeta_salida_master = r"D:\Documentos\Ayudante de Investigacion\Codigos\Cortes"
+
+frecuencia_pitido = 1200 
 umbral_sensibilidad = 0.7 
 
-def procesar_archivo_unico(ruta_wav, salida, beep_freq, threshold):
-    # 1. Extraer nombre base para el formato: Nombre_001.wav
+def procesar_archivo(ruta_wav, carpeta_destino, beep_freq, threshold):
     nombre_base = os.path.splitext(os.path.basename(ruta_wav))[0]
     
-    print(f"Analizando: {nombre_base}...")
+    print(f"\n>>> Analizando: {nombre_base}.wav")
     
-    # 2. Detección de pitidos con Librosa
+    # Carga y detección de pitidos
     y, sr = librosa.load(ruta_wav)
     S = np.abs(librosa.stft(y))
     freqs = librosa.fft_frequencies(sr=sr)
     idx = (np.abs(freqs - beep_freq)).argmin()
     
-    # Normalizamos la energía del pitido
     energia = S[idx]
     energia = energia / (np.max(energia) + 1e-9)
     
-    # Buscamos los tiempos donde suena el pitido
     frames = np.where(energia > threshold)[0]
     tiempos = librosa.frames_to_time(frames, sr=sr)
     
@@ -33,40 +33,54 @@ def procesar_archivo_unico(ruta_wav, salida, beep_freq, threshold):
     if len(tiempos) > 0:
         pitidos_finales.append(tiempos[0])
         for t in tiempos:
-            if t - pitidos_finales[-1] > 2.0: # Evita detectar el mismo pitido
+            if t - pitidos_finales[-1] > 2.0:
                 pitidos_finales.append(t)
     
-    print(f"Se encontraron {len(pitidos_finales)} pitidos.")
+    print(f"    Se encontraron {len(pitidos_finales)} pitidos.")
 
-    # 3. Recorte con Pydub
+    # Recorte
     audio = AudioSegment.from_wav(ruta_wav)
-    if not os.path.exists(salida):
-        os.makedirs(salida)
+    
+    # Opcional: Si quieres que cada audio original tenga su propia subcarpeta, 
+    # descomenta las siguientes dos líneas:
+    carpeta_destino = os.path.join(carpeta_destino, nombre_base)
+    if not os.path.exists(carpeta_destino): os.makedirs(carpeta_destino)
 
     for i, tiempo_pitido in enumerate(pitidos_finales):
-        # El clip empieza 300ms después del inicio del pitido (para que no se oiga)
         inicio_ms = int(tiempo_pitido * 1000) + 300
         
-        # Lógica de fin de clip
         if i < len(pitidos_finales) - 1:
-            # Si hay otro pitido después, cortamos justo antes del siguiente pitido
             fin_ms = int(pitidos_finales[i+1] * 1000) - 50 
         else:
-            # Si es el ÚLTIMO, forzamos duración de 4.59 segundos (4590 ms)
             fin_ms = inicio_ms + 4590
             
-        # Realizar el corte
         segmento = audio[inicio_ms:fin_ms]
         
-        # Nombre de archivo solicitado: NombreOriginal_Numero.wav
-        nombre_clip = f"{nombre_base}_{i+1:02d}.wav"
-        ruta_final = os.path.join(salida, nombre_clip)
+        # Uso :03d por si tienes más de 99 clips, para que el orden alfabético se mantenga
+        nombre_clip = f"{nombre_base}_{i+1:03d}.wav"
+        ruta_final = os.path.join(carpeta_destino, nombre_clip)
         
         segmento.export(ruta_final, format="wav")
-        print(f" -> Exportado: {nombre_clip} (Duración: {len(segmento)/1000:.2f}s)")
+
+    print(f"    ✓ {nombre_base} procesado con éxito.")
 
 if __name__ == "__main__":
-    if os.path.exists(archivo_entrada):
-        procesar_archivo_unico(archivo_entrada, carpeta_salida, frecuencia_pitido, umbral_sensibilidad)
-    else:
-        print(f"Error: No se encuentra el archivo '{archivo_entrada}'")
+    # Crear la carpeta de salida si no existe
+    if not os.path.exists(carpeta_salida_master):
+        os.makedirs(carpeta_salida_master)
+
+    # Listar todos los archivos en la carpeta de entrada
+    archivos = [f for f in os.listdir(carpeta_entrada) if f.lower().endswith(".wav")]
+    
+    total = len(archivos)
+    print(f"Se encontraron {total} archivos para procesar.")
+
+    for index, nombre_archivo in enumerate(archivos):
+        ruta_completa = os.path.join(carpeta_entrada, nombre_archivo)
+        print(f"[{index + 1}/{total}]", end="")
+        procesar_archivo(ruta_completa, carpeta_salida_master, frecuencia_pitido, umbral_sensibilidad)
+
+    print("\n========================================")
+    print("¡PROCESAMIENTO MASIVO COMPLETADO!")
+    print(f"Los clips están en: {carpeta_salida_master}")
+    print("========================================")
