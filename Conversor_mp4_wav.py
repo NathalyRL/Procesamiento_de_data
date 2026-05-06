@@ -1,41 +1,62 @@
+import os
 import subprocess
+from pathlib import Path
 
-# ================= CONFIGURACIÓN DE PRUEBA =================
-# 1. Ruta exacta al ejecutable (ejemplo: r"C:\ffmpeg\bin\ffmpeg.exe")
+# ================= CONFIGURACIÓN MASIVA =================
+# 1. Ruta al ejecutable (la misma que usaste en la prueba)
 ruta_ffmpeg = r"D:\Documentos\ffmpeg-2026-04-30-git-cc3ca17127-full_build\bin\ffmpeg.exe"
 
-# 2. Ruta del video MP4 que quieres probar
-video_entrada = r"D:\Documentos\Ayudante de Investigacion\Codigos\02_00_05.MP4"
+# 2. Carpeta donde están los 40 videos .mp4
+carpeta_videos = Path(r"D:\Documentos\Ayudante de Investigacion\Archivos_mp4")
 
-# 3. Ruta donde quieres que se guarde el audio resultante
-audio_salida = r"D:\Documentos\Ayudante de Investigacion\Codigos\Archivo_wav_convertidos\02_00_05.wav"
-# ===========================================================
+# 3. Carpeta donde quieres guardar los audios (puede ser la misma o una nueva)
+carpeta_salida = Path(r"D:\Documentos\Ayudante de Investigacion\Codigos\Archivo_wav_convertidos")
+# ========================================================
 
-print(f"Intentando convertir: {video_entrada}...")
+# Crear la carpeta de salida si no existe
+carpeta_salida.mkdir(parents=True, exist_ok=True)
 
-comando = [
-    ruta_ffmpeg,
-    "-i", video_entrada,
-    "-vn",                   # Extraer solo audio
-    "-acodec", "pcm_s16le",     # Formato WAV (16 bits)
-    "-ar", "44100",          # Calidad estándar (44.1kHz)
-    "-y",                    # Sobrescribir si ya existe
-    audio_salida
-]
+# Contador para el resumen final
+exitos = 0
+errores = 0
 
-try:
-    # Ejecutamos el comando y capturamos la salida para ver errores
-    proceso = subprocess.run(comando, capture_output=True, text=True)
+print(f"--- Iniciando conversión masiva en: {carpeta_videos} ---")
 
-    if proceso.returncode == 0:
-        print("✅ ¡Prueba exitosa! El archivo .wav se creó correctamente.")
-        print(f"Ubicación: {audio_salida}")
-    else:
-        print("❌ Error al convertir:")
-        print(proceso.stderr) # Esto te dirá exactamente qué falló
+# Buscamos todos los archivos .mp4
+for archivo in carpeta_videos.glob("*.mp4"):
+    # Construir el nuevo nombre: nombreOriginal_1.wav
+    nuevo_nombre = f"{archivo.stem}_1.wav"
+    ruta_salida = carpeta_salida / nuevo_nombre
+    
+    print(f"Procesando: {archivo.name} -> {nuevo_nombre}")
 
-except FileNotFoundError:
-    print("❌ ERROR: No se encontró el archivo ffmpeg.exe.")
-    print("Verifica que la 'ruta_ffmpeg' sea la correcta y termine en .exe")
-except Exception as e:
-    print(f"🔥 Ocurrió un error inesperado: {e}")
+    comando = [
+        ruta_ffmpeg,
+        "-i", str(archivo),
+        "-vn",
+        "-acodec", "pcm_s16le",
+        "-ar", "44100",
+        "-y",
+        str(ruta_salida)
+    ]
+
+    try:
+        # Ejecutar conversión
+        resultado = subprocess.run(comando, capture_output=True, text=True)
+        
+        if resultado.returncode == 0:
+            print(f"  ✅ OK")
+            exitos += 1
+        else:
+            print(f"  ❌ ERROR en este archivo: {resultado.stderr}")
+            errores += 1
+            
+    except Exception as e:
+        print(f"  🔥 Error inesperado: {e}")
+        errores += 1
+
+print("\n========================================")
+print(f"PROCESO FINALIZADO")
+print(f"Archivos convertidos con éxito: {exitos}")
+print(f"Archivos con error: {errores}")
+print("========================================")
