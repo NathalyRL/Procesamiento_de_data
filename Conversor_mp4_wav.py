@@ -1,53 +1,41 @@
-import os
 import subprocess
-from pathlib import Path
 
-# ================= CONFIGURACIÓN =================
-# 1. PEGA AQUÍ LA RUTA AL ARCHIVO FFMPEG.EXE
-# Ejemplo: r"C:\ffmpeg\bin\ffmpeg.exe"
-ruta_ffmpeg = r"C:\TU_RUTA_AQUI\bin\ffmpeg.exe" 
+# ================= CONFIGURACIÓN DE PRUEBA =================
+# 1. Ruta exacta al ejecutable (ejemplo: r"C:\ffmpeg\bin\ffmpeg.exe")
+ruta_ffmpeg = r"D:\Documentos\ffmpeg-2026-04-30-git-cc3ca17127-full_build\bin\ffmpeg.exe"
 
-# 2. RUTAS DE TUS ARCHIVOS
-carpeta_videos = Path(r"C:\Ruta\A\Tus\Videos_MP4")
-carpeta_salida = Path(r"C:\Ruta\A\Tus\Audios_WAV")
-# =================================================
+# 2. Ruta del video MP4 que quieres probar
+video_entrada = r"D:\Documentos\Ayudante de Investigacion\Codigos\02_00_05.MP4"
 
-# Crear carpeta de salida si no existe
-carpeta_salida.mkdir(parents=True, exist_ok=True)
+# 3. Ruta donde quieres que se guarde el audio resultante
+audio_salida = r"D:\Documentos\Ayudante de Investigacion\Codigos\Archivo_wav_convertidos\02_00_05.wav"
+# ===========================================================
 
-# Contador para saber cuántos procesamos
-convertidos = 0
+print(f"Intentando convertir: {video_entrada}...")
 
-print("--- Iniciando conversión ---")
+comando = [
+    ruta_ffmpeg,
+    "-i", video_entrada,
+    "-vn",                   # Extraer solo audio
+    "-acodec", "pcm_s16le",     # Formato WAV (16 bits)
+    "-ar", "44100",          # Calidad estándar (44.1kHz)
+    "-y",                    # Sobrescribir si ya existe
+    audio_salida
+]
 
-for archivo in carpeta_videos.glob("*.mp4"):
-    entrada = str(archivo)
-    salida = str(carpeta_salida / f"{archivo.stem}.wav")
-    
-    print(f"Procesando: {archivo.name}...")
+try:
+    # Ejecutamos el comando y capturamos la salida para ver errores
+    proceso = subprocess.run(comando, capture_output=True, text=True)
 
-    # El comando usando la ruta directa al ejecutable
-    comando = [
-        ruta_ffmpeg,
-        "-i", entrada,
-        "-vn",               # No video
-        "-acodec", "pcm_s16le", # Calidad WAV estándar
-        "-ar", "44100",      # Frecuencia de muestreo
-        "-y",                # Sobrescribir si ya existe
-        salida
-    ]
+    if proceso.returncode == 0:
+        print("✅ ¡Prueba exitosa! El archivo .wav se creó correctamente.")
+        print(f"Ubicación: {audio_salida}")
+    else:
+        print("❌ Error al convertir:")
+        print(proceso.stderr) # Esto te dirá exactamente qué falló
 
-    try:
-        # Ejecutamos el proceso
-        resultado = subprocess.run(comando, capture_output=True, text=True)
-        
-        if resultado.returncode == 0:
-            print(f"✅ Convertido: {archivo.stem}.wav")
-            convertidos += 1
-        else:
-            print(f"❌ Error en {archivo.name}: {resultado.stderr}")
-            
-    except Exception as e:
-        print(f"🔥 Error crítico: {e}")
-
-print(f"\n--- ¡Listo! Se convirtieron {convertidos} archivos ---")
+except FileNotFoundError:
+    print("❌ ERROR: No se encontró el archivo ffmpeg.exe.")
+    print("Verifica que la 'ruta_ffmpeg' sea la correcta y termine en .exe")
+except Exception as e:
+    print(f"🔥 Ocurrió un error inesperado: {e}")
