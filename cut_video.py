@@ -3,14 +3,18 @@ import numpy as np
 from pydub import AudioSegment
 import os
 
+ruta_ffmpeg_exe = r"D:\Documentos\ffmpeg-2026-04-30-git-cc3ca17127-full_build\bin\ffmpeg.exe"
+AudioSegment.converter = ruta_ffmpeg_exe
+
 # --- CONFIGURACIÓN MASIVA ---
 # Carpeta donde están tus 50 archivos .wav originales
-carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\Codigos\Archivo_wav_convertidos"
+carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\Codigos\Correcciones"
 # Carpeta donde se guardarán todos los recortes
 carpeta_salida_master = r"D:\Documentos\Ayudante de Investigacion\Codigos\Cortes"
 
-frecuencia_pitido = 1200 
-umbral_sensibilidad = 0.7 
+frecuencia_pitido = 1198 
+umbral_sensibilidad = 0.6 
+margen_frecuencia = 20    # Buscará entre 1178Hz y 1218Hz
 
 def procesar_archivo(ruta_wav, carpeta_destino, beep_freq, threshold):
     nombre_base = os.path.splitext(os.path.basename(ruta_wav))[0]
@@ -21,9 +25,10 @@ def procesar_archivo(ruta_wav, carpeta_destino, beep_freq, threshold):
     y, sr = librosa.load(ruta_wav)
     S = np.abs(librosa.stft(y))
     freqs = librosa.fft_frequencies(sr=sr)
-    idx = (np.abs(freqs - beep_freq)).argmin()
+    idx_rango = np.where((freqs >= beep_freq - margen_frecuencia) & 
+                         (freqs <= beep_freq + margen_frecuencia))[0]
     
-    energia = S[idx]
+    energia = np.sum(S[idx_rango], axis=0)
     energia = energia / (np.max(energia) + 1e-9)
     
     frames = np.where(energia > threshold)[0]
