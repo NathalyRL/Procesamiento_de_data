@@ -1,77 +1,86 @@
 import os
 import numpy as np
+import random
 from scipy.signal import fftconvolve
 from pydub import AudioSegment
-import io
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN DE MOTOR (FFMPEG) ---
+ruta_bin_ffmpeg = r"D:\Documentos\ffmpeg-2026-04-30-git-cc3ca17127-full_build\bin"
+os.environ["PATH"] += os.pathsep + ruta_bin_ffmpeg
+AudioSegment.converter = os.path.join(ruta_bin_ffmpeg, "ffmpeg.exe")
+AudioSegment.ffprobe   = os.path.join(ruta_bin_ffmpeg, "ffprobe.exe")
+
+# --- RUTAS ---
 carpeta_recortes = r"D:\Documentos\Ayudante de Investigacion\Codigos\Pruebas"
-carpeta_final = r"D:\Documentos\Ayudante de Investigacion\Codigos\Pruebas_ruido_trafico"
-ruta_trafico = r"D:\Documentos\Ayudante de Investigacion\Codigos\Efectos de ruido\coches_atrapados_tráfico_y_tocando_la_bocina,_en_la_distancia_con_un_leve.mp3"
+carpeta_final    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Pruebas_comparativa"
+ruta_trafico     = r"D:\Documentos\Ayudante de Investigacion\Codigos\Efectos de ruido\coches_atrapados_tráfico_y_tocando_la_bocina,_en_la_distancia_con_un_leve.mp3"
+ruta_ir_calle    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Efectos de ruido\1st_baptist_nashville_balcony.wav"
 
-# RESPUESTA AL IMPULSO (IR)
-# Debes conseguir un archivo .wav de un "Impulse Response" de una calle o plaza.
-# Si no tienes uno, el script saltará la convolución y solo mezclará.
-ruta_ir_calle = r"D:\Documentos\Ayudante de Investigacion\Codigos\Efectos de ruido\1st_baptist_nashville_balcony.wav" #Respuesta al impulso del ambiente de una calle.
-
-# AJUSTES
-SNR_DB = -15  # Relación señal-ruido (qué tan fuerte está el tráfico)
-VOL_VOZ = -3  # Bajar un poco la voz para evitar saturación
+# --- AJUSTES DE MEZCLA ---
+FRECUENCIA_TRABAJO = 44100
+# Si no escuchas casi el tráfico, sube este valor (ej. -10 o -5)
+# Si el tráfico tapa la voz, baja este valor (ej. -25)
+NIVEL_TRAFICO_DB = -12  
+VOL_VOZ_POST_CONV = -3
 
 def pydub_to_np(audio):
-    """Convierte AudioSegment a array de numpy para convolución"""
-    return np.array(audio.get_array_of_samples(), dtype=np.float32)
+    data = np.array(audio.get_array_of_samples(), dtype=np.float32)
+    return data / (2**(8 * audio.sample_width - 1))
 
-def np_to_pydub(data, original_segment):
-    """Convierte array de numpy de vuelta a AudioSegment"""
-    data = np.clip(data, -32768, 32767).astype(np.int16)
-    return AudioSegment(
-        data.tobytes(), 
-        frame_rate=original_segment.frame_rate,
-        sample_width=original_segment.sample_width, 
-        channels=original_segment.channels
-    )
+def np_to_pydub(data, frame_rate):
+    max_val = np.max(np.abs(data))
+    if max_val > 0:
+        data = data / max_val * 0.8 # Normalizamos a un nivel sólido
+    data_int = (data * 32767).astype(np.int16)
+    return AudioSegment(data_int.tobytes(), frame_rate=frame_rate, sample_width=2, channels=1)
 
-def procesar_realismo():
-    # 1. Cargar ambiente y IR
-    ambiente = AudioSegment.from_file(ruta_trafico)
-    ir_segment = None
-    if os.path.exists(ruta_ir_calle):
-        ir_segment = AudioSegment.from_file(ruta_ir_calle).set_channels(1)
-        print("✅ Respuesta al Impulso cargada.")
+def generar_comparativa():
+    if not os.path.exists(ruta_ir_calle) or not os.path.exists(ruta_trafico):
+        print("❌ Error: Archivos base no encontrados.")
+        return
+
+    # Cargamos el ambiente una sola vez (lo mantenemos en estéreo para el final)
+    print("⚙️ Cargando y preparando ambiente...")
+    ambiente_master = AudioSegment.from_file(ruta_trafico).set_frame_rate(FRECUENCIA_TRABAJO).set_channels(2)
+    ir_segment = AudioSegment.from_file(ruta_ir_calle).set_frame_rate(FRECUENCIA_TRABAJO).set_channels(1)
+    ir_np = pydub_to_np(ir_segment)
 
     for root, dirs, files in os.walk(carpeta_recortes):
         for f in files:
-            if f.endswith(".wav"):
-                ruta_v = os.path.join(root, f)
-                voz = AudioSegment.from_wav(ruta_v).set_channels(1)
+            if f.lower().endswith(".wav"):
+                nombre_base = os.path.splitext(f)[0]
+                voz_original = AudioSegment.from_wav(os.path.join(root, f)).set_frame_rate(FRECUENCIA_TRABAJO).set_channels(1)
                 
-                # --- PASO 1: CONVOLUCIÓN (Acústica) ---
-                if ir_segment:
-                    # Convertir a numpy para procesar matemáticamente
-                    voz_np = pydub_to_np(voz)
-                    ir_np = pydub_to_np(ir_segment)
-                    
-                    # Convolución rápida usando FFT
-                    voz_convolved_np = fftconvolve(voz_np, ir_np, mode='full')
-                    
-                    # Volver a pydub y recortar al tamaño original
-                    voz = np_to_pydub(voz_convolved_np, voz)[:len(voz)]
+                # 1. CONVOLUCIÓN
+                voz_np = pydub_to_np(voz_original)
+                conv_np = fftconvolve(voz_np, ir_np, mode='full')
+                voz_conv = np_to_pydub(conv_np, FRECUENCIA_TRABAJO)[:len(voz_original)]
                 
-                # --- PASO 2: ECUALIZACIÓN RÁPIDA (Filtro de calle) ---
-                # Quitamos graves (proximity effect del micro de estudio)
-                voz = voz.high_pass_filter(200).apply_gain(VOL_VOZ)
+                # 2. PREPARAR VOZ (Filtro y pasar a Estéreo para que combine con el tráfico)
+                voz_procesada = voz_conv.high_pass_filter(250).apply_gain(VOL_VOZ_POST_CONV).set_channels(2)
 
-                # --- PASO 3: MEZCLA ADITIVA (Tráfico) ---
-                # Mezclamos el tráfico con el volumen ajustado
-                mezcla = voz.overlay(ambiente + SNR_DB, loop=True)
+                # 3. SELECCIÓN ALEATORIA DE RUIDO (Para realismo)
+                # Tomamos un pedazo al azar del tráfico para que no siempre sea el mismo inicio
+                if len(ambiente_master) > len(voz_procesada):
+                    start_limit = int(len(ambiente_master) - len(voz_procesada) - 1)
+                    start_time = random.randint(0, max(0, start_limit))
+                    pedazo_trafico = ambiente_master[start_time : start_time + len(voz_procesada)]
+                else:
+                    pedazo_trafico = ambiente_master
 
-                # --- GUARDAR ---
-                rel_path = os.path.relpath(root, carpeta_recortes)
-                out_dir = os.path.join(carpeta_final, rel_path)
+                # 4. MEZCLA FINAL
+                # Overlay con el pedazo aleatorio y nivel ajustado
+                mezcla_final = voz_procesada.overlay(pedazo_trafico.apply_gain(NIVEL_TRAFICO_DB))
+
+                # GUARDAR
+                out_dir = os.path.join(carpeta_final, os.path.relpath(root, carpeta_recortes))
                 os.makedirs(out_dir, exist_ok=True)
-                mezcla.export(os.path.join(out_dir, f), format="wav")
-                print(f"Procesado: {f}")
+                
+                # Guardamos las dos versiones para que compares
+                voz_conv.export(os.path.join(out_dir, f"{nombre_base}_solo_conv.wav"), format="wav")
+                mezcla_final.export(os.path.join(out_dir, f"{nombre_base}_completo_calle.wav"), format="wav")
+                
+                print(f"✔ {nombre_base} mezclado con éxito.")
 
 if __name__ == "__main__":
-    procesar_realismo()
+    generar_comparativa()
