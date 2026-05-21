@@ -14,14 +14,14 @@ AudioSegment.ffprobe   = os.path.join(ruta_bin_ffmpeg, "ffprobe.exe")
 carpeta_recortes = r"D:\Documentos\Ayudante de Investigacion\Codigos\Pruebas"
 carpeta_final    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Pruebas_comparativa"
 ruta_trafico     = r"D:\Documentos\Ayudante de Investigacion\Codigos\Efectos de ruido\coches_atrapados_tráfico_y_tocando_la_bocina,_en_la_distancia_con_un_leve.mp3"
-ruta_ir_calle    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Efectos de ruido\1st_baptist_nashville_balcony.wav"
+ruta_ir_calle    = r"D:\Documentos\Ayudante de Investigacion\Codigos\RI_ruidos\test_outdoor.wav"
 
 # --- AJUSTES DE MEZCLA ---
 FRECUENCIA_TRABAJO = 44100
 # Si no escuchas casi el tráfico, sube este valor (ej. -10 o -5)
 # Si el tráfico tapa la voz, baja este valor (ej. -25)
-NIVEL_TRAFICO_DB = -12  
-VOL_VOZ_POST_CONV = -3
+NIVEL_TRAFICO_DB = -8  
+VOL_VOZ_POST_CONV = -1
 
 def pydub_to_np(audio):
     data = np.array(audio.get_array_of_samples(), dtype=np.float32)
@@ -43,6 +43,7 @@ def generar_comparativa():
     print("⚙️ Cargando y preparando ambiente...")
     ambiente_master = AudioSegment.from_file(ruta_trafico).set_frame_rate(FRECUENCIA_TRABAJO).set_channels(2)
     ir_segment = AudioSegment.from_file(ruta_ir_calle).set_frame_rate(FRECUENCIA_TRABAJO).set_channels(1)
+    #ir_segment = ir_segment[170:]
     ir_np = pydub_to_np(ir_segment)
 
     for root, dirs, files in os.walk(carpeta_recortes):
@@ -57,6 +58,7 @@ def generar_comparativa():
                 voz_conv = np_to_pydub(conv_np, FRECUENCIA_TRABAJO)[:len(voz_original)]
                 
                 # 2. PREPARAR VOZ (Filtro y pasar a Estéreo para que combine con el tráfico)
+                #voz_procesada = voz_conv.high_pass_filter(300).low_pass_filter(6000).apply_gain(VOL_VOZ_POST_CONV)
                 voz_procesada = voz_conv.high_pass_filter(250).apply_gain(VOL_VOZ_POST_CONV).set_channels(2)
 
                 # 3. SELECCIÓN ALEATORIA DE RUIDO (Para realismo)
