@@ -10,7 +10,7 @@ carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\Codigos\Correcciones
 carpeta_salida_master = r"D:\Documentos\Ayudante de Investigacion\Codigos\Cortes_corregidos"
 
 frecuencia_pitido = 1198 
-umbral_sensibilidad = 0.45
+umbral_sensibilidad = 0.4
 
 def procesar_archivo(ruta_wav, carpeta_destino, beep_freq, threshold):
     nombre_base = os.path.splitext(os.path.basename(ruta_wav))[0]
