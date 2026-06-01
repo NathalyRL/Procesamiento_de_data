@@ -40,7 +40,7 @@ import soundfile as sf
 from scipy import signal
 from pydub import AudioSegment
 from tqdm import tqdm
-
+#
 # =============================================================================
 # CONFIGURACIÓN DE FFMPEG
 # =============================================================================
@@ -58,7 +58,7 @@ carpeta_final    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Audios_Limp
 # =============================================================================
 # CONFIGURACIÓN GENERAL
 # =============================================================================
-SUFIJO             = "_01"
+SUFIJO             = "_01" # Sufijo para diferenciar archivos limpios
 FRECUENCIA_TRABAJO = 44100
 
 # =============================================================================
@@ -66,7 +66,7 @@ FRECUENCIA_TRABAJO = 44100
 # =============================================================================
 HPF_FREQ_HZ       = 80
 LPF_FREQ_HZ       = 10000
-NOTCH_FREQ_HZ     = 50
+NOTCH_FREQ_HZ     = 60
 NOTCH_Q           = 30
 FILTRO_ORDEN      = 4
 PRE_ENFASIS_ALPHA = 0.97
