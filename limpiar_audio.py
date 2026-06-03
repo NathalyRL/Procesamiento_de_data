@@ -15,7 +15,7 @@ Dependencias:
 
 PIPELINE (en orden de ejecución):
   1.  Carga y conversión     → mono, 44100 Hz, float32
-  2.  Notch 50 Hz            → elimina interferencia de red eléctrica
+  2.  Notch 60 Hz            → elimina interferencia de red eléctrica
   3.  HPF 80 Hz              → elimina graves (DC, vibraciones)
   4.  LPF 10 kHz             → elimina ruido ultrasónico
   5.  SS por bandas          → sustracción espectral diferenciada por rango
@@ -476,7 +476,7 @@ def procesar_audio(ruta_entrada, ruta_salida, filtros):
            .set_sample_width(2))
     muestras = np.array(seg.get_array_of_samples(), dtype=np.float32) / 32768.0
 
-    # 2. Notch 50 Hz
+    # 2. Notch 60 Hz
     muestras = signal.filtfilt(b_notch, a_notch, muestras)
 
     # 3. HPF
@@ -505,13 +505,12 @@ def procesar_audio(ruta_entrada, ruta_salida, filtros):
     muestras = aplicar_noise_gate(muestras, FRECUENCIA_TRABAJO)
 
     # 10. Pre-énfasis
-    muestras = aplicar_pre_enfasis(muestras)
+    #muestras = aplicar_pre_enfasis(muestras)
 
     # 11. Normalización RMS
-    muestras = normalizar_rms(muestras)
+    #muestras = normalizar_rms(muestras)
 
-    sf.write(ruta_salida, (muestras * 32767).astype(np.int16),
-             FRECUENCIA_TRABAJO, subtype='PCM_16')
+    sf.write(ruta_salida, muestras, FRECUENCIA_TRABAJO, subtype='FLOAT')
 
 
 # =============================================================================
@@ -532,7 +531,7 @@ def limpiar_voces_masivo():
     print(f"  Supresor mús. : {'SÍ' if MUSICA_ACTIVO else 'NO'}  umbral={MUSICA_ESTABILIDAD_UMBRAL}  atten={MUSICA_ATENUACION_DB} dB")
     print(f"  VAD espectral : {'SÍ' if VAD_ACTIVO else 'NO'}  SFM<{VAD_UMBRAL_SFM}  ctx={VAD_CONTEXTO_MS} ms")
     print(f"  Noise Gate    : umbral={GATE_UMBRAL_DB} dBFS  release={GATE_RELEASE_MS} ms")
-    print(f"  Pre-énfasis α={PRE_ENFASIS_ALPHA} | RMS objetivo={OBJETIVO_DBFS} dBFS")
+    #print(f"  Pre-énfasis α={PRE_ENFASIS_ALPHA} | RMS objetivo={OBJETIVO_DBFS} dBFS")
     print("=" * 68)
 
     filtros      = disenar_filtros(FRECUENCIA_TRABAJO)
