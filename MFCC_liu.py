@@ -70,7 +70,7 @@ from tqdm import tqdm
 # =============================================================================
 carpeta_limpios = r"D:\Documentos\Ayudante de Investigacion\Codigos\Audios_Limpios"
 carpeta_mfcc    = r"D:\Documentos\Ayudante de Investigacion\Codigos\MFCCs"
-ARCHIVO_CSV     = os.path.join(carpeta_mfcc, "corpus_mfcc.csv")
+#ARCHIVO_CSV     = os.path.join(carpeta_mfcc, "corpus_mfcc.csv")
 
 # =============================================================================
 # CONFIGURACIÓN DE NOMBRES
@@ -88,7 +88,7 @@ SR             = 44100    # Frecuencia de muestreo — igual que en la limpieza
 PRE_ENFASIS    = 0.97     # Coeficiente de pre-énfasis
 N_MFCC         = 13       # Coeficientes base (13 = estándar; Liu usa 13)
 N_MELS         = 40       # Filtros Mel en el banco
-N_FFT          = 512      # Tamaño de FFT
+N_FFT          = 2048      # Tamaño de FFT
 HOP_LENGTH     = int(SR * 0.010)   # Salto de frame: 10 ms
 WIN_LENGTH     = int(SR * 0.025)   # Longitud de frame: 25 ms
 FMIN           = 80       # Frecuencia mínima del banco Mel (= HPF limpieza)
@@ -269,7 +269,6 @@ def extraer_mfcc_masivo():
     print(f"  Pipeline  : pre-énfasis → Mel({N_MELS}) → {N_MFCC} MFCC → Δ → ΔΔ")
     print(f"  Ventana   : {int(WIN_LENGTH/SR*1000)} ms  |  Salto: {int(HOP_LENGTH/SR*1000)} ms  |  FFT: {N_FFT}")
     print(f"  Banda Mel : {FMIN}–{FMAX} Hz")
-    print(f"  CMN       : {'SÍ' if CMN_ACTIVO else 'NO'}")
     print(f"  Contexto  : ±{CONTEXTO_FRAMES} frames → vector de {dim_vec} dimensiones")
     print("=" * 62)
 
@@ -306,9 +305,28 @@ def extraer_mfcc_masivo():
                 nombre_base = os.path.splitext(archivo)[0]
                 n_frames    = features_ctx.shape[0]
 
-                for idx in range(n_frames):
-                    fila = [idx] + features_ctx[idx].tolist()
-                    escritor.writerow(fila)
+                rel_path = os.path.relpath(root, carpeta_limpios)                # ←
+                if rel_path != ".":                                               # ←
+                    carpetas_individuales = rel_path.split(os.sep)               # ←
+                    carpetas_con_sufijo   = [f"{c}{SUFIJO_SALIDA}"               # ←
+                                            for c in carpetas_individuales if c] # ←
+                    rel_path_salida = os.path.join(*carpetas_con_sufijo)         # ←
+                else:                                                             # ←
+                    rel_path_salida = ""                                          # ←
+
+                carpeta_destino = os.path.join(carpeta_mfcc, rel_path_salida)   # ←
+                os.makedirs(carpeta_destino, exist_ok=True) 
+
+                # CSV individual: mismo nombre que el .wav + sufijo              # ←
+                nombre_csv  = f"{nombre_base}{SUFIJO_SALIDA}.csv"                # ←
+                ruta_csv    = os.path.join(carpeta_destino, nombre_csv)
+
+                with open(ruta_csv, "w", newline="", encoding="utf-8") as f_csv:  # ←
+                    escritor = csv.writer(f_csv)
+                    escritor.writerow(cabecera)
+                    for idx in range(n_frames):
+                        fila = [idx] + features_ctx[idx].tolist()
+                        escritor.writerow(fila)
 
                 total_frames += n_frames
                 emociones_vistas.add(emocion)
@@ -320,11 +338,8 @@ def extraer_mfcc_masivo():
         tam_mb = os.path.getsize(ARCHIVO_CSV) / (1024 * 1024)
         print(f"\n✅ Extracción terminada.")
         print(f"   Archivos procesados : {len(lista_tareas) - len(errores)}")
-        print(f"   Total frames        : {total_frames}")
-        print(f"   Columnas por fila   : {len(cabecera)}  (4 etiquetas + {dim_vec} coeficientes)")
-        print(f"   Emociones           : {sorted(emociones_vistas)}")
-        print(f"   CSV generado        : {ARCHIVO_CSV}")
-        print(f"   Tamaño del CSV      : {tam_mb:.1f} MB")
+        print(f"   CSVs generados      : {len(lista_tareas) - len(errores)}  → en {carpeta_mfcc}")
+        print(f"   CSV generado        : {ARCHIVO_CSV}")    
     else:
         print("⚠️  No se generaron features.")
 
