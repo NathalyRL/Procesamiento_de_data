@@ -52,8 +52,8 @@ AudioSegment.ffprobe   = os.path.join(ruta_bin_ffmpeg, "ffprobe.exe")
 # =============================================================================
 # RUTAS
 # =============================================================================
-carpeta_recortes = r"D:\Documentos\Ayudante de Investigacion\Codigos\Pruebas"
-carpeta_final    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Audios_Limpios"
+carpeta_recortes = r"D:\Documentos\Ayudante de Investigacion\Codigos\Cortes_partes2"
+carpeta_final    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Audios_Limpios2"
 
 # =============================================================================
 # CONFIGURACIÓN GENERAL
