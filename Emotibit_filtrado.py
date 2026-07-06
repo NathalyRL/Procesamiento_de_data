@@ -11,14 +11,19 @@ from scipy.signal import butter, filtfilt
 # 0. CONFIGURACIÓN DE RUTAS
 # =============================================================================
 
-carpeta_datos = r"d:\Documentos\Ayudante de Investigacion\Emotibit_test"
+carpeta_datos = r"d:\Documentos\Ayudante de Investigacion\Emotibit"
 carpeta_salida = r"d:\Documentos\Ayudante de Investigacion\Emotibit_Limpios"
-sufijo = "_01"
+
+# Sufijos para cada archivo de salida. Se generan DOS csv por archivo de
+# entrada (uno de EDA a su fs nativa ~15 Hz, otro de PPG a su fs nativa
+# ~25 Hz), en vez de forzarlos a compartir una sola línea de tiempo.
+sufijo_eda = "_EDA"
+sufijo_ppg = "_PPG"
 
 # Si es True, abre una ventana con la comparación "crudo vs. limpio" de
 # cada señal, para verificar visualmente el filtrado antes de confiar en
 # el CSV generado. La ventana debe cerrarse para que el script continúe.
-GENERAR_GRAFICAS = True
+GENERAR_GRAFICAS = False # Cambia a True si quieres ver las gráficas de verificación
 
 # Tags fisiológicos que nos interesan
 TAGS_INTERES = ["EA", "EL", "PG", "PR", "PI"]
@@ -264,24 +269,48 @@ for ruta_completa_entrada in archivos_a_procesar:
             nombre_archivo
         )
 
-    master_df = ppg_pg[['Time_Sec', 'Clean_Value']].rename(columns={'Clean_Value': 'PPG_Green'})
-
-    for df_signal, nombre_col in [(ppg_pi, 'PPG_Infrared'), (ppg_pr, 'PPG_Red'),
-                                    (eda_ea, 'EDA_Phasic'), (eda_el, 'EDA_Tonic')]:
-        if not df_signal.empty:
-            master_df = pd.merge_asof(
-                master_df,
-                df_signal[['Time_Sec', 'Clean_Value']].rename(columns={'Clean_Value': nombre_col}),
-                on='Time_Sec', direction='nearest'
-            )
-        else:
-            print(f"    ⚠️  Sin datos suficientes para {nombre_col}, se omite del CSV de salida.")
-
     nombre_base, extension = os.path.splitext(nombre_archivo)
-    nombre_salida = f"{nombre_base}{sufijo}{extension}"
-    ruta_completa_salida = os.path.join(carpeta_salida, nombre_salida)
 
-    master_df.to_csv(ruta_completa_salida, index=False)
-    print(f"✔️ ¡Guardado con éxito en la nueva ubicación: '{ruta_completa_salida}'!")
+    def guardar_csv(df_base, columnas_extra, fs_dict, ruta_salida):
+        """
+        df_base: DataFrame ancla (con Time_Sec ya renombrado a su primera columna de señal).
+        columnas_extra: lista de (dataframe, nombre_columna) a fusionar sobre df_base
+                         vía merge_asof (todas dentro del mismo grupo EDA o PPG,
+                         por lo que su fs nativa es casi idéntica y el desfase es mínimo).
+        fs_dict: {nombre_columna: fs} para escribir como comentario en el CSV.
+        """
+        df_out = df_base
+        for df_signal, nombre_col in columnas_extra:
+            if not df_signal.empty:
+                df_out = pd.merge_asof(
+                    df_out,
+                    df_signal[['Time_Sec', 'Clean_Value']].rename(columns={'Clean_Value': nombre_col}),
+                    on='Time_Sec', direction='nearest'
+                )
+            else:
+                print(f"    ⚠️  Sin datos suficientes para {nombre_col}, se omite del CSV de salida.")
+
+        with open(ruta_salida, "w", newline="") as f:
+            for columna, fs_val in fs_dict.items():
+                if columna in df_out.columns and fs_val is not None:
+                    f.write(f"# fs_{columna}_Hz={fs_val:.4f}\n")
+            df_out.to_csv(f, index=False)
+
+    # --- CSV de EDA, a su fs nativa (~15 Hz) ---
+    if not eda_ea.empty:
+        eda_df_base = eda_ea[['Time_Sec', 'Clean_Value']].rename(columns={'Clean_Value': 'EDA_Phasic'})
+        ruta_eda = os.path.join(carpeta_salida, f"{nombre_base}{sufijo_eda}{extension}")
+        guardar_csv(eda_df_base, [(eda_el, 'EDA_Tonic')],
+                    {"EDA_Phasic": fs_ea, "EDA_Tonic": fs_el}, ruta_eda)
+        print(f"✔️ EDA guardado en: '{ruta_eda}'!")
+    else:
+        print(f"❌ Sin datos de EDA Fásica en '{nombre_archivo}'. No se genera CSV de EDA.")
+
+    # --- CSV de PPG, a su fs nativa (~25 Hz) ---
+    ppg_df_base = ppg_pg[['Time_Sec', 'Clean_Value']].rename(columns={'Clean_Value': 'PPG_Green'})
+    ruta_ppg = os.path.join(carpeta_salida, f"{nombre_base}{sufijo_ppg}{extension}")
+    guardar_csv(ppg_df_base, [(ppg_pi, 'PPG_Infrared'), (ppg_pr, 'PPG_Red')],
+                {"PPG_Green": fs_pg, "PPG_Infrared": fs_pi, "PPG_Red": fs_pr}, ruta_ppg)
+    print(f"✔️ PPG guardado en: '{ruta_ppg}'!")
 
 print("\n🎉 ¡Lote automático terminado! Todos los archivos procesados están en tu carpeta de destino.")
