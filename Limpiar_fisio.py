@@ -20,23 +20,23 @@ import pandas as pd
 from scipy.signal import butter, filtfilt
 from scipy.interpolate import interp1d
 
-# 👈 MODIFICADO: Importamos directo para permitir ventanas emergentes (pop-ups)
 import matplotlib.pyplot as plt
 
 # ──────────────────────────────────────────────
 #  PARÁMETROS (ajustar si cambia el hardware)
 # ──────────────────────────────────────────────
-FS_NOMINAL    = 250.0   # Hz — frecuencia de muestreo declarada del Cyton
-LOWCUT        = 0.5     # Hz — corte inferior del pasa-banda (≈ 30 lpm)
-HIGHCUT       = 5.0     # Hz — corte superior del pasa-banda (≈ 300 lpm)
-FILTER_ORDER  = 4       # orden del filtro Butterworth
-WARMUP_S      = 2.0     # segundos a descartar al inicio por inestabilidad óptica
-GAP_THRESH_S  = 0.5     # salto de tiempo mínimo para considerarse "gap real"
-OUTLIER_STD   = 4       # umbral de z-score para detectar outliers
-OUTLIER_WIN   = 250     # ventana móvil (muestras) para el z-score
+FS_NOMINAL    = 250.0   
+LOWCUT        = 0.5     
+HIGHCUT       = 5.0     
+FILTER_ORDER  = 4       
+WARMUP_S      = 2.0     
+GAP_THRESH_S  = 0.5     
+OUTLIER_STD   = 4       
+OUTLIER_WIN   = 250     
 
-# VARIABLE DEL SUFIJO
+# VARIABLE DEL SUFIJO Y DURACIÓN DEL GRÁFICO
 SUFIJO_SALIDA = "_00"  
+DURACION_GRAFICO_S = 150 # Cambia este valor para ver más o menos segundos en la gráfica
 
 
 # ──────────────────────────────────────────────
@@ -48,9 +48,49 @@ def load_openbci_txt(filepath: str) -> pd.DataFrame:
     return df
 
 def extract_ppg_raw(df: pd.DataFrame):
-    t   = df['Timestamp'].to_numpy(dtype=float)
-    ppg = df['Analog Channel 0'].to_numpy(dtype=float)
-    return t, ppg
+    # Asegurar limpieza de nombres de columnas
+    df.columns = df.columns.str.strip()
+    
+    # 1. Extraer los arrays nativos de OpenBCI
+    sample_indices = df['Sample Index'].to_numpy(dtype=int)
+    ppg_raw        = df['Analog Channel 0'].to_numpy(dtype=float)
+    
+    # 2. Calcular los saltos entre muestras usando aritmética modular (% 256)
+    # Esto corrige automáticamente el reinicio cuando el contador pasa de 255 a 0
+    diffs = np.diff(sample_indices) % 256
+    
+    # 3. Reconstruir un índice de muestras continuo acumulativo (sin topes)
+    cumulative_indices = [0]
+    for d in diffs:
+        # d debería ser 1 si no hay pérdidas. Si d > 1, acumula el salto real.
+        cumulative_indices.append(cumulative_indices[-1] + d)
+    cumulative_indices = np.array(cumulative_indices)
+    
+    # 4. Crear la estructura de la línea de tiempo total ideal
+    total_muestras_esperadas = cumulative_indices[-1] + 1
+    full_range = np.arange(0, total_muestras_esperadas)
+    
+    # Creamos un contenedor del tamaño perfecto lleno de NaNs (huecos vacíos)
+    ppg_fixed = np.full(total_muestras_esperadas, np.nan)
+    
+    # Ubicamos cada dato que sí llegó en su "asiento" correspondiente
+    ppg_fixed[cumulative_indices] = ppg_raw
+    
+    # 5. CONTABILIZAR PÉRDIDAS (Opcional, para tu reporte)
+    paquetes_perdidos = total_muestras_esperadas - len(df)
+    if paquetes_perdidos > 0:
+        porcentaje = (paquetes_perdidos / total_muestras_esperadas) * 100
+        print(f"  [Info Bluetooth] Se detectaron {paquetes_perdidos} paquetes perdidos ({porcentaje:.2f}%). Reconstruyendo...")
+
+    # 6. RESOLVER LOS HUECOS: Interpolación lineal local de los NaNs
+    # Convierte los NaNs en una transición suave para que no rompa el filtro pasabanda
+    s = pd.Series(ppg_fixed)
+    ppg_interpolada = s.interpolate(method='linear').to_numpy()
+    
+    # 7. Generar el tiempo ideal real basado en la frecuencia nominal (250 Hz)
+    t_corregido = full_range / FS_NOMINAL
+    
+    return t_corregido, ppg_interpolada
 
 def trim_warmup(t, ppg, warmup_s: float = WARMUP_S):
     mask = (t - t[0]) >= warmup_s
@@ -134,37 +174,30 @@ def clean_ppg_pipeline(filepath: str, verbose: bool = True):
 
 
 # ──────────────────────────────────────────────
-#  GRAFICO MODIFICADO
+#  FUNCION PARA MOSTRAR GRÁFICO
 # ──────────────────────────────────────────────
 def show_comparison_plot(df_out: pd.DataFrame, fs: float, filename: str):
-    """
-    Extrae un segmento continuo de 2 segundos aleatorios 
-    y abre una ventana interactiva para visualizar la comparativa.
-    """
-    segundos = 20  
-    samples_Ns = int(fs * segundos)  
+    samples_total = int(fs * DURACION_GRAFICO_S)  
     total_samples = len(df_out)
     
-    if total_samples <= samples_Ns:
-        print(f"  [Aviso] El archivo es demasiado corto para extraer {segundos} segundos de gráfico.")
+    if total_samples <= samples_total:
+        print("  [Aviso] El archivo es demasiado corto para extraer el gráfico.")
         return
 
-    start_idx = random.randint(0, total_samples - samples_Ns - 1)
-    end_idx = start_idx + samples_Ns
+    start_idx = random.randint(0, total_samples - samples_total - 1)
+    end_idx = start_idx + samples_total
     
     segment = df_out.iloc[start_idx:end_idx]
     time_x = segment['time_s'] - segment['time_s'].iloc[0]
     
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
     
-    # Subplot superior: Data Original
     ax1.plot(time_x, segment['ppg_raw'], color='#7f8c8d', alpha=0.8, linewidth=1.5, label='Original (Con Offset/Ruido)')
-    ax1.set_title(f"Comparativa PPG - {filename}", fontsize=12, fontweight='bold')
+    ax1.set_title(f"Comparativa PPG ({DURACION_GRAFICO_S} segundos aleatorios) - {filename}", fontsize=12, fontweight='bold')
     ax1.set_ylabel("Cuentas ADC")
     ax1.grid(True, linestyle='--', alpha=0.5)
     ax1.legend(loc='upper right')
     
-    # Subplot inferior: Data Limpia
     ax2.plot(time_x, segment['ppg_clean'], color='#16a085', linewidth=2, label='Limpia (Filtrada 0.5 - 5.0 Hz)')
     ax2.set_xlabel("Tiempo (segundos)")
     ax2.set_ylabel("Amplitud Filtrada")
@@ -172,19 +205,16 @@ def show_comparison_plot(df_out: pd.DataFrame, fs: float, filename: str):
     ax2.legend(loc='upper right')
     
     plt.tight_layout()
-    
-    # 👇 CAMBIADO: Muestra la figura interactiva en pantalla y pausa el script hasta que la cierres
     plt.show()
 
 
 # ──────────────────────────────────────────────
-#  PROCESAMIENTO POR LOTES
+#  PROCESAMIENTO POR LOTES (MODIFICADO)
 # ──────────────────────────────────────────────
 def process_folder(input_path: str, output_dir: str):
     os.makedirs(output_dir, exist_ok=True)
 
     files_to_process = []
-
     if os.path.isfile(input_path):
         files_to_process.append((input_path, os.path.basename(input_path)))
     else:
@@ -211,12 +241,20 @@ def process_folder(input_path: str, output_dir: str):
             target_dir = os.path.join(output_dir, rel_dir)
             os.makedirs(target_dir, exist_ok=True)
             
-            # 1. Guardar el CSV final EXCLUSIVAMENTE con la data limpia
             out_csv = os.path.join(target_dir, f"{stem}{SUFIJO_SALIDA}.csv")
-            out[['time_s', 'ppg_clean']].to_csv(out_csv, index=False)
-            print(f"  [OK] Guardado CSV limpio en: {out_csv}")
             
-            # 2. 👇 MODIFICADO: Llama a la función para mostrar la ventana gráfica
+            # 👇 MODIFICACIÓN CRUCIAL: Escribir el encabezado de texto con la información antes de meter la tabla
+            with open(out_csv, 'w', encoding='utf-8') as f:
+                f.write(f"Muestras originales       : {report['muestras_originales']}\n")
+                f.write(f"Fs efectiva               : {report['fs_efectiva_hz']} Hz\n")
+                f.write(f"Duracion util             : {report['duracion_min']} min\n")
+                f.write("──────────────────────────────────────────────────\n") # Línea divisoria
+            
+            # 👇 Guardar la data limpia anexándola abajo (mode='a' de "append")
+            out[['time_s', 'ppg_clean']].to_csv(out_csv, mode='a', index=False)
+            print(f"  [OK] Guardado CSV limpio con metadatos en: {out_csv}")
+            
+            # Mostrar la ventana gráfica
             print(f"  [Mostrando Gráfica] Cierra la ventana del gráfico para continuar...")
             show_comparison_plot(out, FS_NOMINAL, report['archivo'])
             
@@ -232,10 +270,8 @@ def process_folder(input_path: str, output_dir: str):
 # ──────────────────────────────────────────────
 if __name__ == '__main__':
     # 1. Pones aquí la ruta de la carpeta que tiene tus archivos .txt
-    ruta_entrada = r"D:\Documentos\Ayudante de Investigacion\OPENBCI\05_04_00.txt"
+    ruta_entrada = r"D:\Documentos\Ayudante de Investigacion\OPENBCI\23_08_00.txt"
     
     # 2. Pones aquí la ruta de la carpeta donde quieres que se guarden
-    ruta_salida = r"D:\Documentos\Ayudante de Investigacion\Fisio_limpio"
-        
-    # El script se ejecuta automáticamente con estas rutas al darle a "Play"
+    ruta_salida = r"D:\Documentos\Ayudante de Investigacion\Fisio_limpio"      
     process_folder(ruta_entrada, ruta_salida)
