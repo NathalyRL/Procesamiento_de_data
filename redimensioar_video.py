@@ -1,13 +1,36 @@
 import cv2
+import numpy as np
 import os
+import shutil
+import subprocess
+
+# =============================================================================
+# CONFIGURACIÓN DE FFMPEG
+# =============================================================================
+ruta_bin_ffmpeg = r"D:\Documentos\ffmpeg-2026-04-30-git-cc3ca17127-full_build\bin"
+if ruta_bin_ffmpeg and os.path.isdir(ruta_bin_ffmpeg):
+    os.environ["PATH"] += os.pathsep + ruta_bin_ffmpeg
 
 sufijo = "_01"
-video_entrada = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\LENOVO_F"
-directorio_salida = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\LENOVO_F_REDIMENSION2"
+video_entrada = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL_GOPRO_TEST"
+directorio_salida = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL_GOPRO_I_REDIMENSION3"
 extensiones_validas = ('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv')
 
-FRAME_SEGURO = 25      # primer frame donde se intenta detectar el rostro
+FRAME_SEGURO = 1 # primer frame donde se intenta detectar el rostro
 MAX_INTENTOS = 5       # probará FRAME_SEGURO, 2x, 3x, 4x, 5x antes de rendirse
+
+TAMANO_SALIDA = 224
+FFMPEG_PRESET = "veryfast"
+FFMPEG_CRF = "15"       # 15 = margen extra de calidad (prácticamente sin pérdida perceptual)
+
+
+def verificar_dependencias():
+    faltantes = [exe for exe in ("ffmpeg",) if shutil.which(exe) is None]
+    if faltantes:
+        print(f"❌ No se encontró en el PATH: {', '.join(faltantes)}.")
+        print("   Revisa la variable 'ruta_bin_ffmpeg' al inicio del script.")
+        return False
+    return True
 
 
 def obtener_rutas_a_procesar(ruta_entrada):
@@ -49,6 +72,7 @@ def procesar_video_ia(ruta_entrada):
     alto = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     ancho = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
 
     # Coordenadas de respaldo (Recorte central)
     x1, y1 = (ancho - min(alto, ancho)) // 2, (alto - min(alto, ancho)) // 2
@@ -61,9 +85,7 @@ def procesar_video_ia(ruta_entrada):
 
     # =====================================================================
     # Reintento de detección: prueba FRAME_SEGURO, 2x, 3x... hasta encontrar
-    # rostro o quedarse sin frames del video. Evita que un solo fotograma
-    # con mala suerte (alguien cruzándose, movimiento brusco, etc.) arruine
-    # la detección de todo el video.
+    # rostro o quedarse sin frames del video.
     # =====================================================================
     for intento in range(1, MAX_INTENTOS + 1):
         frame_objetivo = FRAME_SEGURO * intento
@@ -77,19 +99,12 @@ def procesar_video_ia(ruta_entrada):
         if not ret:
             break
 
-        # Convertir a escala de grises
         gray = cv2.cvtColor(frame_deteccion, cv2.COLOR_BGR2GRAY)
-
-        # OPTIMIZACIÓN: Reducir la imagen al 50% solo para que el detector sea ultra rápido
         gray_pequeño = cv2.resize(gray, (0, 0), fx=0.5, fy=0.5)
-
-        # Buscamos el rostro en la imagen pequeña (ajustamos minSize a la mitad también)
         rostros = face_cascade.detectMultiScale(gray_pequeño, scaleFactor=1.1, minNeighbors=5, minSize=(15, 15))
 
         if len(rostros) > 0:
-            # Multiplicamos por 2 para devolver las coordenadas a su tamaño original
             fx, fy, fw, fh = rostros[0] * 2
-
             cx = fx + fw // 2
             cy = fy + fh // 2
             tamaño_cuadro = int(max(fw, fh) * 2.2)
@@ -111,36 +126,77 @@ def procesar_video_ia(ruta_entrada):
     if not rostro_encontrado:
         print("⚠️ No se detectó rostro en ningún frame de prueba. Se usará recorte central por defecto.")
 
-    # 3. REBOBINAR al inicio para procesar el video completo desde el frame 0
+    # Rebobinar al inicio para procesar el video completo desde el frame 0
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
-    # 4. Configurar la salida de video
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    out = cv2.VideoWriter(ruta_salida, fourcc, fps, (224, 224))
+    # =========================================================================
+    # Codificación con FFmpeg (libx264) en vez de cv2.VideoWriter/mp4v,
+    # que era la causa de la pérdida de calidad visible en el resultado.
+    # =========================================================================
+    comando_ffmpeg = [
+        'ffmpeg', '-y',
+        '-f', 'rawvideo',
+        '-vcodec', 'rawvideo',
+        '-pix_fmt', 'bgr24',
+        '-s', f'{TAMANO_SALIDA}x{TAMANO_SALIDA}',
+        '-r', str(fps),
+        '-i', '-',
+        '-an',
+        '-c:v', 'libx264',
+        '-preset', FFMPEG_PRESET,
+        '-crf', FFMPEG_CRF,
+        '-pix_fmt', 'yuv420p',
+        ruta_salida
+    ]
 
-    print(f"🎬 Redimensionando fotogramas a 224x224...")
+    proceso = subprocess.Popen(comando_ffmpeg, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    print(f"🎬 Redimensionando fotogramas a {TAMANO_SALIDA}x{TAMANO_SALIDA}...")
+    frames_procesados = 0
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
         frame_recortado = frame[y1:y2, x1:x2]
-        frame_reseteado = cv2.resize(frame_recortado, (224, 224))
-        out.write(frame_reseteado)
+        if frame_recortado.size == 0:
+            continue
+        frame_reseteado = cv2.resize(frame_recortado, (TAMANO_SALIDA, TAMANO_SALIDA))
+
+        try:
+            proceso.stdin.write(frame_reseteado.astype(np.uint8).tobytes())
+            frames_procesados += 1
+        except (BrokenPipeError, OSError):
+            print("    ❌ FFmpeg cerró el pipe inesperadamente.")
+            break
 
     cap.release()
-    out.release()
-    print(f"✅ ¡Listo! Video guardado en: {ruta_salida}\n")
+    proceso.stdin.close()
+    stderr_output = proceso.stderr.read().decode(errors="ignore")
+    proceso.wait()
+
+    if proceso.returncode != 0:
+        print(f"    ❌ FFmpeg falló (código {proceso.returncode}): {stderr_output.strip()[-400:]}")
+    elif not os.path.exists(ruta_salida) or os.path.getsize(ruta_salida) == 0:
+        print(f"    ❌ El archivo de salida no se generó o quedó vacío.")
+    else:
+        print(f"✅ ¡Listo! {frames_procesados} frames guardados en: {ruta_salida}\n")
 
 
 # =====================================================================
 # EJECUCIÓN
 # =====================================================================
-rutas = obtener_rutas_a_procesar(video_entrada)
+if __name__ == "__main__":
+    if not verificar_dependencias():
+        raise SystemExit(1)
 
-if not rutas:
-    print(f"⚠️ No se encontraron videos válidos en: {video_entrada}")
-else:
-    for ruta in rutas:
-        procesar_video_ia(ruta)
+    rutas = obtener_rutas_a_procesar(video_entrada)
+
+    if not rutas:
+        print(f"⚠️ No se encontraron videos válidos en: {video_entrada}")
+    else:
+        total = len(rutas)
+        print(f"Se encontraron {total} videos para procesar.\n")
+        for idx, ruta in enumerate(rutas, start=1):
+            print(f"[{idx}/{total}]", end=" ")
+            procesar_video_ia(ruta)
