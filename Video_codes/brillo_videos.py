@@ -18,8 +18,8 @@ if ruta_bin_ffmpeg and os.path.isdir(ruta_bin_ffmpeg):
 # =============================================================================
 # CONFIGURACIÓN GENERAL
 # =============================================================================
-carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\LENOVO\LENOVO_F_REDIMENSION_CORTES"
-carpeta_salida = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\LENOVO\LENOVO_F_REDIMENSION_BRILLO LOW"
+carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL GOPRO\CEL_GOPRO_REDIMENSION"
+carpeta_salida = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL GOPRO\CEL_GOPRO_BRILLO_LOW"
 extensiones_validas = ('.mp4', '.avi', '.mov', '.mkv')
 
 SUFIJO = "_05"

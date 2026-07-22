@@ -41,8 +41,8 @@ from tqdm import tqdm
 # =============================================================================
 # RUTAS
 # =============================================================================
-carpeta_limpios = r"D:\Documentos\Ayudante de Investigacion\Codigos\Pruebas limpio"
-carpeta_mfcc    = r"D:\Documentos\Ayudante de Investigacion\Codigos\MFCCs"
+carpeta_limpios = r"D:\Documentos\Ayudante de Investigacion\Codigos\Audios_limpios2"
+carpeta_mfcc    = r"D:\Documentos\Ayudante de Investigacion\Codigos\MFCCs2"
 
 # =============================================================================
 # CONFIGURACIÓN DE NOMBRES

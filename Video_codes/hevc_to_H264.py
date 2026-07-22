@@ -10,8 +10,8 @@ ruta_bin_ffmpeg = r"D:\Documentos\ffmpeg-2026-04-30-git-cc3ca17127-full_build\bi
 if ruta_bin_ffmpeg and os.path.isdir(ruta_bin_ffmpeg):
     os.environ["PATH"] += os.pathsep + ruta_bin_ffmpeg
 
-carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL_GOPRO_I"
-carpeta_salida = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL_GOPRO_I_H264_2"
+carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL GOPRO\CEL_GOPRO_I"
+carpeta_salida = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL GOPRO\CEL_GOPRO_I_H264"
 extensiones_validas = ('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv')
 
 FFMPEG_PRESET = "ultrafast"   # velocidad máxima; sube a "veryfast" si te sobra tiempo

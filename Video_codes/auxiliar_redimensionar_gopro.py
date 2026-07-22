@@ -11,68 +11,87 @@ ruta_bin_ffmpeg = r"D:\Documentos\ffmpeg-2026-04-30-git-cc3ca17127-full_build\bi
 if ruta_bin_ffmpeg and os.path.isdir(ruta_bin_ffmpeg):
     os.environ["PATH"] += os.pathsep + ruta_bin_ffmpeg
 
-sufijo = "_01"
-video_entrada = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL_GOPRO_TEST"
-directorio_salida = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL_GOPRO_I_REDIMENSION3"
+# =============================================================================
+# CONFIGURACIÓN GENERAL
+# =============================================================================
+video_entrada = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL GOPRO\arreglos"
+directorio_salida = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL GOPRO\arreglos_redimension"
 extensiones_validas = ('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv')
 
-FRAME_SEGURO = 1 # primer frame donde se intenta detectar el rostro
+sufijo = "_01"
+
+FRAME_SEGURO = 15   # primer frame donde se intenta detectar el rostro
 MAX_INTENTOS = 5       # probará FRAME_SEGURO, 2x, 3x, 4x, 5x antes de rendirse
 
 TAMANO_SALIDA = 224
 FFMPEG_PRESET = "veryfast"
-FFMPEG_CRF = "15"       # 15 = margen extra de calidad (prácticamente sin pérdida perceptual)
-
+FFMPEG_CRF = "15"
 
 def verificar_dependencias():
     faltantes = [exe for exe in ("ffmpeg",) if shutil.which(exe) is None]
     if faltantes:
         print(f"❌ No se encontró en el PATH: {', '.join(faltantes)}.")
-        print("   Revisa la variable 'ruta_bin_ffmpeg' al inicio del script.")
         return False
     return True
 
 
 def obtener_rutas_a_procesar(ruta_entrada):
     if not os.path.exists(ruta_entrada):
-        print(f"❌ Error: La ruta '{ruta_entrada}' no existe. Verifica la dirección.")
+        print(f"❌ Error: La ruta '{ruta_entrada}' no existe.")
         return []
-
     if os.path.isfile(ruta_entrada):
         return [ruta_entrada]
-
     rutas = []
     for raiz, _, archivos in os.walk(ruta_entrada):
         for archivo in archivos:
             if archivo.lower().endswith(extensiones_validas):
                 rutas.append(os.path.join(raiz, archivo))
-
     rutas.sort()
     return rutas
 
 
-def procesar_video_ia(ruta_entrada):
-    if not os.path.exists(ruta_entrada):
-        print(f"❌ Error: El archivo '{ruta_entrada}' no existe. Verifica la ruta.")
-        return
+def obtener_grupos_por_subcarpeta(ruta_entrada):
+    """Agrupa los videos por la subcarpeta donde están, para poder detectar
+    el rostro una sola vez por grupo y reutilizarlo en todo el resto."""
+    rutas = obtener_rutas_a_procesar(ruta_entrada)
+    if not rutas:
+        return []
 
-    cap = cv2.VideoCapture(ruta_entrada)
+    base = ruta_entrada if os.path.isdir(ruta_entrada) else os.path.dirname(ruta_entrada)
+    grupos = {}
+    for ruta in rutas:
+        carpeta_relativa = os.path.relpath(os.path.dirname(ruta), base)
+        carpeta_key = "." if carpeta_relativa == "." else carpeta_relativa
+        grupos.setdefault(carpeta_key, []).append(ruta)
+
+    return sorted(grupos.items(), key=lambda item: item[0])
+
+
+def construir_ruta_salida(ruta_entrada_video):
+    base_relativa = video_entrada if os.path.isdir(video_entrada) else os.path.dirname(video_entrada)
+    ruta_relativa = os.path.relpath(ruta_entrada_video, base_relativa)
+    carpeta_relativa = os.path.dirname(ruta_relativa)
+    nombre_archivo = os.path.basename(ruta_relativa)
+    nombre_base, _ = os.path.splitext(nombre_archivo)
+
+    carpeta_destino = os.path.join(directorio_salida, carpeta_relativa)
+    os.makedirs(carpeta_destino, exist_ok=True)
+
+    return os.path.join(carpeta_destino, f"{nombre_base}{sufijo}.mp4")
+
+
+def detectar_recorte_rostro(ruta_video):
+    """Abre el video, intenta detectar el rostro con reintentos, y devuelve
+    (x1, y1, x2, y2, encontrado) SIN codificar nada. Se usa una sola vez por
+    subcarpeta, sobre el primer clip."""
+    cap = cv2.VideoCapture(ruta_video)
     if not cap.isOpened():
-        print(f"❌ No se pudo abrir el formato de este video: {ruta_entrada}")
-        return
-
-    nombre_archivo = os.path.basename(ruta_entrada)
-    nombre_sin_extension, _ = os.path.splitext(nombre_archivo)
-
-    if not os.path.exists(directorio_salida):
-        os.makedirs(directorio_salida, exist_ok=True)
-
-    ruta_salida = os.path.join(directorio_salida, f"{nombre_sin_extension}{sufijo}.mp4")
+        print(f"❌ No se pudo abrir el formato de este video: {ruta_video}")
+        return None
 
     alto = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     ancho = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
 
     # Coordenadas de respaldo (Recorte central)
     x1, y1 = (ancho - min(alto, ancho)) // 2, (alto - min(alto, ancho)) // 2
@@ -81,21 +100,13 @@ def procesar_video_ia(ruta_entrada):
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     rostro_encontrado = False
 
-    print(f"🔍 Analizando '{nombre_archivo}'...")
-
-    # =====================================================================
-    # Reintento de detección: prueba FRAME_SEGURO, 2x, 3x... hasta encontrar
-    # rostro o quedarse sin frames del video.
-    # =====================================================================
     for intento in range(1, MAX_INTENTOS + 1):
         frame_objetivo = FRAME_SEGURO * intento
-
         if frame_objetivo >= total_frames:
             break
 
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_objetivo)
         ret, frame_deteccion = cap.read()
-
         if not ret:
             break
 
@@ -123,16 +134,26 @@ def procesar_video_ia(ruta_entrada):
         else:
             print(f"    ⚠️ Sin rostro en frame {frame_objetivo}, probando siguiente...")
 
+    cap.release()
+
     if not rostro_encontrado:
-        print("⚠️ No se detectó rostro en ningún frame de prueba. Se usará recorte central por defecto.")
+        print("    ⚠️ No se detectó rostro en ningún frame de prueba. Se usará recorte central por defecto.")
 
-    # Rebobinar al inicio para procesar el video completo desde el frame 0
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    return x1, y1, x2, y2, rostro_encontrado
 
-    # =========================================================================
-    # Codificación con FFmpeg (libx264) en vez de cv2.VideoWriter/mp4v,
-    # que era la causa de la pérdida de calidad visible en el resultado.
-    # =========================================================================
+
+def codificar_video(ruta_entrada_video, x1, y1, x2, y2):
+    """Recorta/redimensiona el video usando coordenadas YA CALCULADAS
+    (no vuelve a detectar el rostro)."""
+    cap = cv2.VideoCapture(ruta_entrada_video)
+    if not cap.isOpened():
+        print(f"❌ No se pudo abrir el formato de este video: {ruta_entrada_video}")
+        return
+
+    nombre_archivo = os.path.basename(ruta_entrada_video)
+    ruta_salida = construir_ruta_salida(ruta_entrada_video)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+
     comando_ffmpeg = [
         'ffmpeg', '-y',
         '-f', 'rawvideo',
@@ -151,7 +172,6 @@ def procesar_video_ia(ruta_entrada):
 
     proceso = subprocess.Popen(comando_ffmpeg, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    print(f"🎬 Redimensionando fotogramas a {TAMANO_SALIDA}x{TAMANO_SALIDA}...")
     frames_procesados = 0
     while cap.isOpened():
         ret, frame = cap.read()
@@ -179,8 +199,6 @@ def procesar_video_ia(ruta_entrada):
         print(f"    ❌ FFmpeg falló (código {proceso.returncode}): {stderr_output.strip()[-400:]}")
     elif not os.path.exists(ruta_salida) or os.path.getsize(ruta_salida) == 0:
         print(f"    ❌ El archivo de salida no se generó o quedó vacío.")
-    else:
-        print(f"✅ ¡Listo! {frames_procesados} frames guardados en: {ruta_salida}\n")
 
 
 # =====================================================================
@@ -190,13 +208,44 @@ if __name__ == "__main__":
     if not verificar_dependencias():
         raise SystemExit(1)
 
-    rutas = obtener_rutas_a_procesar(video_entrada)
+    grupos = obtener_grupos_por_subcarpeta(video_entrada)
 
-    if not rutas:
+    if not grupos:
         print(f"⚠️ No se encontraron videos válidos en: {video_entrada}")
     else:
-        total = len(rutas)
-        print(f"Se encontraron {total} videos para procesar.\n")
-        for idx, ruta in enumerate(rutas, start=1):
-            print(f"[{idx}/{total}]", end=" ")
-            procesar_video_ia(ruta)
+        total_grupos = len(grupos)
+        for indice, (nombre_carpeta, rutas_carpeta) in enumerate(grupos, start=1):
+            nombre_mostrar = nombre_carpeta if nombre_carpeta != "." else "raíz"
+            print(f"\n[{indice}/{total_grupos}] 📁 Subcarpeta: {nombre_mostrar} "
+                  f"({len(rutas_carpeta)} clip(s))")
+
+            # -----------------------------------------------------------
+            # Detectar el rostro UNA SOLA VEZ, usando el primer clip del
+            # grupo, y reutilizar ese mismo recorte para todos los demás.
+            # -----------------------------------------------------------
+            primer_clip = rutas_carpeta[0]
+            print("    🔍 Detectando rostro en el primer clip...")
+            resultado_deteccion = detectar_recorte_rostro(primer_clip)
+
+            if resultado_deteccion is None:
+                print(f"    ⚠️ Se omite toda la subcarpeta '{nombre_mostrar}' "
+                      f"(no se pudo abrir el primer clip).")
+                continue
+
+            x1, y1, x2, y2, encontrado = resultado_deteccion
+            if encontrado:
+                print("    ✅ Se usará el recorte detectado del rostro.")
+            else:
+                print("    ⚠️ No se detectó rostro; se usará el recorte central.")
+
+            # -----------------------------------------------------------
+            # Codificar TODOS los clips de la subcarpeta con ese recorte,
+            # incluyendo el primero (ya detectado, no se vuelve a analizar).
+            # -----------------------------------------------------------
+            for ruta_clip in rutas_carpeta:
+                codificar_video(ruta_clip, x1, y1, x2, y2)
+
+    print("\n========================================")
+    print("¡PROCESAMIENTO COMPLETADO!")
+    print(f"Resultados guardados en: {directorio_salida}")
+    print("========================================")

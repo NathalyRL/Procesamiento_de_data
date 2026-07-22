@@ -5,12 +5,12 @@ import os
 
 # --- CONFIGURACIÓN MASIVA ---
 # Carpeta donde están tus 50 archivos .wav originales
-carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\Codigos\Correcciones"
+carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\Codigos\Archivos_wav_convertidos_2"
 # Carpeta donde se guardarán todos los recortes
-carpeta_salida_master = r"D:\Documentos\Ayudante de Investigacion\Codigos\Cortes_corregidos"
+carpeta_salida_master = r"D:\Documentos\Ayudante de Investigacion\Codigos\Cortes_partes2"
 
-frecuencia_pitido = 1198 
-umbral_sensibilidad = 0.4
+frecuencia_pitido = 1198
+umbral_sensibilidad = 0.5  #Este valor se modifica si algun corte no es correcto y confunde frec de pitido con voz
 
 def procesar_archivo(ruta_wav, carpeta_destino, beep_freq, threshold):
     nombre_base = os.path.splitext(os.path.basename(ruta_wav))[0]
@@ -47,7 +47,7 @@ def procesar_archivo(ruta_wav, carpeta_destino, beep_freq, threshold):
     if not os.  path.exists(carpeta_destino): os.makedirs(carpeta_destino)
 
     for i, tiempo_pitido in enumerate(pitidos_finales):
-        inicio_ms = int(tiempo_pitido * 1000) + 300
+        inicio_ms = int(tiempo_pitido * 1000) + 300 
         
         if i < len(pitidos_finales) - 1:
             fin_ms = int(pitidos_finales[i+1] * 1000) - 50 

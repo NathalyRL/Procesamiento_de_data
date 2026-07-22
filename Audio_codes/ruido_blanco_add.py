@@ -11,10 +11,10 @@ AudioSegment.converter = os.path.join(ruta_bin_ffmpeg, "ffmpeg.exe")
 AudioSegment.ffprobe   = os.path.join(ruta_bin_ffmpeg, "ffprobe.exe")
 
 # --- RUTAS ---
-carpeta_recortes = r"D:\Documentos\Ayudante de Investigacion\Codigos\Cortes"
-carpeta_final    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Audios_con_ruido_calle"
+carpeta_recortes = r"D:\Documentos\Ayudante de Investigacion\Codigos\Cortes_partes2"
+carpeta_final    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Audios_con_ruido_calle_2"
 ruta_trafico     = r"D:\Documentos\Ayudante de Investigacion\Codigos\Efectos de ruido\coches_atrapados_tráfico_y_tocando_la_bocina,_en_la_distancia_con_un_leve.mp3"
-ruta_ir_calle    = r"D:\Documentos\Ayudante de Investigacion\Codigos\RI_ruidos\test_outdoor.wav"
+ruta_ir_calle    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Efectos de ruido\RI_ruidos\test_outdoor.wav"
 
 # --- AJUSTES DE MEZCLA ---
 FRECUENCIA_TRABAJO = 44100

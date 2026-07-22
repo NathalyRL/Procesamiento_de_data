@@ -18,28 +18,25 @@ if ruta_bin_ffmpeg and os.path.isdir(ruta_bin_ffmpeg):
 # =============================================================================
 # CONFIGURACIÓN GENERAL
 # =============================================================================
-carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\LENOVO\LENOVO_F_REDIMENSION_CORTES"
-carpeta_salida = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\LENOVO\LENOVO_F_BLUR"
+carpeta_entrada = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL GOPRO\CEL_GOPRO_REDIMENSION"
+carpeta_salida = r"D:\Documentos\Ayudante de Investigacion\VIDEOS\CEL GOPRO\CEL_GOPRO_RUIDO"
 extensiones_validas = ('.mp4', '.avi', '.mov', '.mkv')
 
-SUFIJO = "_06"
+SUFIJO = "_07"
 
 # =============================================================================
-# NIVEL DE DESENFOQUE (sigma del filtro gaussiano)
-# 0    = sin cambios
-# Rango recomendado para augmentation: 0.5 a 3.0 aprox.
-#   0.5-1.0 = desenfoque sutil
-#   1.5-2.5 = desenfoque moderado (rango típico para augmentation facial)
-#   >3.0    = pierde demasiado detalle facial, usar con cuidado
+# INTENSIDAD DEL RUIDO BLANCO GAUSSIANO (escala 0-100 del filtro 'noise')
+# 0     = sin cambios
+# Rango recomendado para augmentation: 5 a 25 aprox.
+#   5-10  = ruido sutil (simula sensor de cámara de gama baja/poca luz leve)
+#   10-20 = ruido moderado (poca luz notoria, cámara de baja calidad)
+#   >25   = empieza a degradar demasiado el detalle facial, usar con cuidado
 # =============================================================================
-NIVEL_BLUR = 1.5
+NIVEL_RUIDO = 20 
 
-# Codificación por CPU (libx264). 'veryfast' da buen balance velocidad/calidad
-# para clips chicos como estos; 'ultrafast' si necesitás priorizar velocidad
-# al máximo aunque el archivo pese un poco más.
 FFMPEG_PRESET = "veryfast"
-FFMPEG_CRF = "18"
-FFMPEG_THREADS = "0"  # 0 = FFmpeg elige automáticamente según núcleos disponibles
+FFMPEG_CRF = "26"
+FFMPEG_THREADS = "0"
 
 
 def verificar_dependencias():
@@ -75,8 +72,13 @@ def construir_ruta_salida(ruta_entrada_video):
     return os.path.join(carpeta_destino, f"{nombre_base}{SUFIJO}{extension}")
 
 
-def aplicar_blur_video(ruta_entrada_video, ruta_salida_video, sigma):
-    filtro = f"gblur=sigma={sigma}"
+def aplicar_ruido_video(ruta_entrada_video, ruta_salida_video, intensidad):
+    # allf=t (temporal): el patrón de ruido cambia frame a frame, como en un
+    # sensor real. Sin la flag 'u' (uniforme), usa distribución GAUSSIANA.
+    # Sin la flag 'c' (correlate), el ruido es independiente entre canales de
+    # color -- esto es justamente lo que define "ruido blanco": sin
+    # correlación espacial/entre canales, distribución gaussiana.
+    filtro = f"noise=alls={intensidad}:allf=t"
 
     comando = [
         'ffmpeg', '-y',
@@ -86,6 +88,7 @@ def aplicar_blur_video(ruta_entrada_video, ruta_salida_video, sigma):
         '-preset', FFMPEG_PRESET,
         '-crf', FFMPEG_CRF,
         '-threads', FFMPEG_THREADS,
+        '-pix_fmt', 'yuv420p',
         '-an',
         ruta_salida_video
     ]
@@ -112,19 +115,20 @@ if __name__ == "__main__":
         raise SystemExit(0)
 
     total = len(rutas)
-    print(f"Se encontraron {total} videos para aplicar blur (sigma={NIVEL_BLUR}).\n")
+    print(f"Se encontraron {total} videos para añadir ruido blanco gaussiano "
+          f"(intensidad={NIVEL_RUIDO}).\n")
 
     exitosos = 0
-    for ruta in tqdm(rutas, desc="Aplicando blur", unit="video"):
+    for ruta in tqdm(rutas, desc="Añadiendo ruido", unit="video"):
         ruta_salida_video = construir_ruta_salida(ruta)
 
         try:
-            if aplicar_blur_video(ruta, ruta_salida_video, NIVEL_BLUR):
+            if aplicar_ruido_video(ruta, ruta_salida_video, NIVEL_RUIDO):
                 exitosos += 1
         except Exception as e:
             print(f"    ❌ Error inesperado: {e}")
 
     print("\n========================================")
-    print(f"¡BLUR APLICADO! {exitosos}/{total} videos procesados.")
+    print(f"¡RUIDO APLICADO! {exitosos}/{total} videos procesados.")
     print(f"Resultados guardados en: {carpeta_salida}")
     print("========================================")

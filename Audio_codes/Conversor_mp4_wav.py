@@ -29,7 +29,7 @@ errores = 0
 print(f"--- Iniciando conversión masiva en: {carpeta_videos} ---")
 
 # Buscamos todos los archivos .mp4
-for archivo in carpeta_videos.glob("*.m4a"):
+for archivo in carpeta_videos.glob("*.mp4"):
     # Construir el nuevo nombre: nombreOriginal_1.wav
     nuevo_nombre = f"{archivo.stem}_1.wav"
     ruta_salida = carpeta_salida / nuevo_nombre

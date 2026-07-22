@@ -11,19 +11,19 @@ from scipy.signal import butter, filtfilt
 # 0. CONFIGURACIÓN DE RUTAS
 # =============================================================================
 
-carpeta_datos = r"d:\Documentos\Ayudante de Investigacion\Emotibit"
-carpeta_salida = r"d:\Documentos\Ayudante de Investigacion\Emotibit_Limpios"
+carpeta_datos = r"d:\Documentos\Ayudante de Investigacion\Emotibit_test"
+carpeta_salida = r"d:\Documentos\Ayudante de Investigacion\Emotibit_Limpios2"
 
 # Sufijos para cada archivo de salida. Se generan DOS csv por archivo de
 # entrada (uno de EDA a su fs nativa ~15 Hz, otro de PPG a su fs nativa
 # ~25 Hz), en vez de forzarlos a compartir una sola línea de tiempo.
-sufijo_eda = "_EDA"
-sufijo_ppg = "_PPG"
+sufijo_eda = "_01"
+sufijo_ppg = "_02"
 
 # Si es True, abre una ventana con la comparación "crudo vs. limpio" de
 # cada señal, para verificar visualmente el filtrado antes de confiar en
 # el CSV generado. La ventana debe cerrarse para que el script continúe.
-GENERAR_GRAFICAS = False # Cambia a True si quieres ver las gráficas de verificación
+GENERAR_GRAFICAS = True # Cambia a True si quieres ver las gráficas de verificación
 
 # Tags fisiológicos que nos interesan
 TAGS_INTERES = ["EA", "EL", "PG", "PR", "PI"]

@@ -9,8 +9,8 @@ AudioSegment.converter = os.path.join(ruta_bin_ffmpeg, "ffmpeg.exe")
 AudioSegment.ffprobe   = os.path.join(ruta_bin_ffmpeg, "ffprobe.exe")
 
 # --- RUTAS ---
-carpeta_recortes = r"D:\Documentos\Ayudante de Investigacion\Codigos\Cortes"
-carpeta_final    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Audios_con_ruido_blanco"
+carpeta_recortes = r"D:\Documentos\Ayudante de Investigacion\Codigos\Cortes_partes2"
+carpeta_final    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Audios_con_ruido_blanco2"
 
 # --- CONFIGURACIÓN DEL SUFIJO DINÁMICO ---
 SUFIJO = "_03"
@@ -24,7 +24,6 @@ def pydub_to_np(audio):
     return data / (2**(8 * audio.sample_width - 1))
 
 def np_to_pydub(data, frame_rate):
-    # Control de clipping/saturación por si la suma del ruido supera el límite
     max_val = np.max(np.abs(data))
     if max_val > 1.0:
         data = data / max_val * 0.95
@@ -83,7 +82,7 @@ def generar_ruido_blanco():
             # Convertir de vuelta a AudioSegment
             audio_final = np_to_pydub(audio_contaminado_np, FRECUENCIA_TRABAJO)
 
-            # --- GUARDAR CON SUFIJO  ---
+            # --- GUARDAR   ---
             ruta_salida_audio = os.path.join(out_dir, f"{nombre_base}{SUFIJO}.wav")
             audio_final.export(ruta_salida_audio, format="wav")
             
