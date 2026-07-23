@@ -1,3 +1,4 @@
+# CORTA AUDIO EN PARTES BASADO EN PITIDOS (FRECUENCIA DE 1198Hz)
 import librosa
 import numpy as np
 from pydub import AudioSegment
