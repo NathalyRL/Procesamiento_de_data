@@ -1,3 +1,4 @@
+# VERSION FINAL DEL SCRIPT PARA INSPECCIONAR ARCHIVOS .npz DE MFCCs
 import numpy as np
 
 # =============================================================================
