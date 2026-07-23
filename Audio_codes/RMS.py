@@ -146,7 +146,6 @@ def normalizar_rms_masivo():
         for nombre, err in errores:
             print(f"   • {nombre}: {err}")
 
-
 # =============================================================================
 if __name__ == "__main__":
     normalizar_rms_masivo()
