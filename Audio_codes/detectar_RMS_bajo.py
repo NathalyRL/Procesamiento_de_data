@@ -44,8 +44,6 @@ DEPENDENCIAS:
     - os: Navegación por el sistema de archivos y borrado de elementos.
     - numpy (np): Operaciones matemáticas vectorizadas (raíz, media, absoluto, pico).
     - soundfile (sf): Lectura robusta de señales de audio y tasas de muestreo.
-
-FECHA: Junio, 2026
 =============================================================================
 """
 
