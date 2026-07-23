@@ -1,3 +1,4 @@
+# GIRAR VIDEOS +/- 90° - Modificar DIRECCION = "izquierda" o "derecha" para cambiar la dirección de giro
 import os
 import shutil
 import subprocess
