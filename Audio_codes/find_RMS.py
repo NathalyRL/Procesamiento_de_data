@@ -1,3 +1,6 @@
+# De un conjunto de audios, calcula el valor RMS de cada uno y luego imprime 
+# el mínimo, máximo, promedio y mediana de los valores RMS obtenidos.
+
 import numpy as np
 import soundfile as sf
 import os
