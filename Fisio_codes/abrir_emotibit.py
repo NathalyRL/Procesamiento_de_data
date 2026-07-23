@@ -2,9 +2,6 @@
 Visualización de los CSV ya limpios/filtrados generados por limpiar_emotibit.py
 (archivos con sufijo _EDA y _PPG).
 
-Uso:
-    python visualizar_limpios.py ruta/al/archivo_EDA.csv ruta/al/archivo_PPG.csv
-
 También puedes editar las rutas por defecto más abajo y correr el script
 sin argumentos.
 """
