@@ -1,3 +1,4 @@
+# REDIMESIONA VIDEOS - Ingresa data cruda de video y genera un video cuadrado de 224x224 centrado en el rostro
 import cv2
 import numpy as np
 import os
