@@ -28,7 +28,7 @@ SUFIJO = "_07"
 # INTENSIDAD DEL RUIDO BLANCO GAUSSIANO (escala 0-100 del filtro 'noise')
 # 0     = sin cambios
 # Rango recomendado para augmentation: 5 a 25 aprox.
-#   5-10  = ruido sutil (simula sensor de cámara de gama baja/poca luz leve)
+#   5-10  = ruido sutil (simula sensor cámara de gama baja/poca luz leve)
 #   10-20 = ruido moderado (poca luz notoria, cámara de baja calidad)
 #   >25   = empieza a degradar demasiado el detalle facial, usar con cuidado
 # =============================================================================
@@ -73,11 +73,6 @@ def construir_ruta_salida(ruta_entrada_video):
 
 
 def aplicar_ruido_video(ruta_entrada_video, ruta_salida_video, intensidad):
-    # allf=t (temporal): el patrón de ruido cambia frame a frame, como en un
-    # sensor real. Sin la flag 'u' (uniforme), usa distribución GAUSSIANA.
-    # Sin la flag 'c' (correlate), el ruido es independiente entre canales de
-    # color -- esto es justamente lo que define "ruido blanco": sin
-    # correlación espacial/entre canales, distribución gaussiana.
     filtro = f"noise=alls={intensidad}:allf=t"
 
     comando = [
