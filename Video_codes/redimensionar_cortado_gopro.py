@@ -1,3 +1,4 @@
+# REDIMENSIONAR VIDEOS PREVIAMENTE CORTADOS POR FRASE
 import cv2
 import numpy as np
 import os
@@ -20,8 +21,9 @@ extensiones_validas = ('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv')
 
 sufijo = "_01"
 
+# Modificar estos valores si se desea cambiar el comportamiento de la detección de rostro
 FRAME_SEGURO = 15   # primer frame donde se intenta detectar el rostro
-MAX_INTENTOS = 5       # probará FRAME_SEGURO, 2x, 3x, 4x, 5x antes de rendirse
+MAX_INTENTOS = 5    # probará FRAME_SEGURO, 2x, 3x, 4x, 5x antes de rendirse
 
 TAMANO_SALIDA = 224
 FFMPEG_PRESET = "veryfast"
