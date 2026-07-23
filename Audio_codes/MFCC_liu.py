@@ -2,6 +2,11 @@
 =============================================================================
 EXTRACCIÓN DE MFCCs PARA RECONOCIMIENTO DE EMOCIONES EN VOZ
 =============================================================================
+
+Se usa como entrada para este código audios o archivos previamente limpiados 
+(sin silencios, sin ruidos, sin saturación) y con un formato de nombre específico 
+que permite inferir la emoción.
+
 Pipeline aplicado (Liu 2018, Tabla 1):
   1. Pre-énfasis          α = 0.97
   2. Framing              25 ms con salto de 10 ms
