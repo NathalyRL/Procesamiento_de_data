@@ -1,3 +1,4 @@
+# VERSION FINAL DE LIMPIEZA DE AUDIO ACORDE A PAPER DE LIU. 
 """
 =============================================================================
 LIMPIEZA DE AUDIO PARA RECONOCIMIENTO DE EMOCIONES EN VOZ
