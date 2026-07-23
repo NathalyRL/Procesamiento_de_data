@@ -1,3 +1,4 @@
+# AÑADIR RUIDO BLANCO GAUSSIANO (AWGN) A AUDIOS DE VOZ
 import os
 import numpy as np
 from pydub import AudioSegment
