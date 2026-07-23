@@ -1,3 +1,4 @@
+# CORTAR VIDEO ACORDE A UN PITIDO DETECTADO EN EL AUDIO
 import librosa
 import numpy as np
 import os
