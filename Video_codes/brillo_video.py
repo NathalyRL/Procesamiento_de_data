@@ -1,3 +1,4 @@
+# MODIFICA BRILLO DE VIDEOS CON FFMPEG - SUBE O BAJA EL BRILLO DE LOS VIDEOS
 import os
 import shutil
 import subprocess
