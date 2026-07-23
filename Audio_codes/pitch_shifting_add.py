@@ -81,7 +81,7 @@ def procesar_pitch_masivo():
             total_procesados += 1
             print(f"✔ Pitch aplicado: {rel_path_salida} -> {nombre_base}{SUFIJO}.wav")
 
-    print(f"\n🚀 ¡Procesamiento masivo de Pitch Shifting terminado!")
+    print(f"\n ¡Procesamiento masivo de Pitch Shifting terminado!")
     print(f"📦 Total de audios generados: {total_procesados}")
     print(f"📂 Carpeta de destino: {carpeta_final}")
 
