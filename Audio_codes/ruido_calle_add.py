@@ -18,7 +18,7 @@ ruta_ir_calle    = r"D:\Documentos\Ayudante de Investigacion\Codigos\Efectos de 
 
 # --- AJUSTES DE MEZCLA ---
 FRECUENCIA_TRABAJO = 44100
-# Si no escuchas casi el tráfico, sube este valor (ej. -10 o -5)
+# Si casi no se escucha el tráfico, sube este valor (ej. -10 o -5)
 # Si el tráfico tapa la voz, baja este valor (ej. -25)
 NIVEL_TRAFICO_DB = -8  
 VOL_VOZ_POST_CONV = -1
@@ -30,7 +30,7 @@ def pydub_to_np(audio):
 def np_to_pydub(data, frame_rate):
     max_val = np.max(np.abs(data))
     if max_val > 0:
-        data = data / max_val * 0.8 # Normalizamos a un nivel sólido
+        data = data / max_val * 0.8 # Normalizar a un nivel sólido
     data_int = (data * 32767).astype(np.int16)
     return AudioSegment(data_int.tobytes(), frame_rate=frame_rate, sample_width=2, channels=1)
 
@@ -39,11 +39,10 @@ def generar_comparativa():
         print("❌ Error: Archivos base no encontrados.")
         return
 
-    # Cargamos el ambiente una sola vez (lo mantenemos en estéreo para el final)
+    # Cargamos el ambiente una sola vez (mantener en estéreo para el final)
     print("⚙️ Cargando y preparando ambiente...")
     ambiente_master = AudioSegment.from_file(ruta_trafico).set_frame_rate(FRECUENCIA_TRABAJO).set_channels(2)
     ir_segment = AudioSegment.from_file(ruta_ir_calle).set_frame_rate(FRECUENCIA_TRABAJO).set_channels(1)
-    #ir_segment = ir_segment[170:]
     ir_np = pydub_to_np(ir_segment)
 
     total_procesados = 0
@@ -55,7 +54,6 @@ def generar_comparativa():
         if not archivos_wav:
             continue
 
-        # --- TRUCO DE CARPETAS _02 ---
         # Obtenemos la ruta relativa (ej: "Sujeto_01\Sesion_A")
         rel_path = os.path.relpath(root, carpeta_recortes)
         
