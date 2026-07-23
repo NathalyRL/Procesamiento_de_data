@@ -1,4 +1,4 @@
-# VERSION FINAL
+# CORTAR VIDEOS REDIMENSIONADOS EN FRAGMENTOS DE 5 SEGUNDOS - NO SYNC
 import os
 import shutil
 import subprocess
