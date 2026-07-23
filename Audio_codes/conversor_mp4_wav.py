@@ -1,3 +1,4 @@
+# VERSION FINAL DEL SCRIPT PARA CONVERTIR MASIVAMENTE ARCHIVOS .mp4 A .wav masivo 
 import os
 import subprocess
 from pathlib import Path
@@ -6,7 +7,6 @@ from pathlib import Path
 # Asegúrate de tener ffmpeg instalado y de actualizar la ruta en la configuración masiva. 
 # Luego, simplemente ejecuta este script y se procesarán todos los archivos .mp4 en la 
 # carpeta especificada, guardando los resultados en la carpeta de salida.
-
 
 # ================= CONFIGURACIÓN MASIVA =================
 # 1. Ruta al ejecutable (la misma que usaste en la prueba)
