@@ -1,3 +1,4 @@
+# SCRIPT DE LIMPIEZA DE SEÑALES EMOTIBIT (EDA + PPG) - ARCHIVOS IN: EMOTIBIT/ OUT: EDA PPG .csv
 import pandas as pd
 import numpy as np
 import os
@@ -12,7 +13,7 @@ from scipy.signal import butter, filtfilt
 # =============================================================================
 
 carpeta_datos = r"d:\Documentos\Ayudante de Investigacion\Emotibit"
-carpeta_salida = r"d:\Documentos\Ayudante de Investigacion\Emotibit_Limpios2"
+carpeta_salida = r"d:\Documentos\Ayudante de Investigacion\Emotibit_Limpios"
 
 # Sufijos para cada archivo de salida. Se generan DOS csv por archivo de
 # entrada (uno de EDA a su fs nativa ~15 Hz, otro de PPG a su fs nativa
