@@ -1,3 +1,4 @@
+# AÑADE BLUR A VIDEOS USANDO FFMPEG
 import os
 import shutil
 import subprocess
